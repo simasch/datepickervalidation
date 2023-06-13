@@ -18,14 +18,20 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.splitlayout.SplitLayout;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.binder.BeanValidationBinder;
+import com.vaadin.flow.data.binder.Binder;
 import com.vaadin.flow.data.binder.ValidationException;
+import com.vaadin.flow.data.binder.ValidationResult;
 import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.router.RouteAlias;
 import com.vaadin.flow.spring.data.VaadinSpringDataHelpers;
+
 import java.util.Optional;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
@@ -33,6 +39,8 @@ import org.springframework.orm.ObjectOptimisticLockingFailureException;
 @Route(value = "master-detail/:personID?/:action?(edit)", layout = MainLayout.class)
 @RouteAlias(value = "", layout = MainLayout.class)
 public class MasterDetailView extends Div implements BeforeEnterObserver {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(MasterDetailView.class);
 
     private final String PERSON_ID = "personID";
     private final String PERSON_EDIT_ROUTE_TEMPLATE = "master-detail/%s/edit";
@@ -46,7 +54,7 @@ public class MasterDetailView extends Div implements BeforeEnterObserver {
     private final Button cancel = new Button("Cancel");
     private final Button save = new Button("Save");
 
-    private final BeanValidationBinder<Person> binder;
+    private final Binder<Person> binder = new Binder<>(Person.class);
 
     private Person person;
 
@@ -69,7 +77,7 @@ public class MasterDetailView extends Div implements BeforeEnterObserver {
         grid.addColumn("lastName").setAutoWidth(true);
         grid.addColumn("dateOfBirth").setAutoWidth(true);
         grid.setItems(query -> personService.list(
-                PageRequest.of(query.getPage(), query.getPageSize(), VaadinSpringDataHelpers.toSpringDataSort(query)))
+                        PageRequest.of(query.getPage(), query.getPageSize(), VaadinSpringDataHelpers.toSpringDataSort(query)))
                 .stream());
         grid.addThemeVariants(GridVariant.LUMO_NO_BORDER);
 
@@ -82,13 +90,6 @@ public class MasterDetailView extends Div implements BeforeEnterObserver {
                 UI.getCurrent().navigate(MasterDetailView.class);
             }
         });
-
-        // Configure Form
-        binder = new BeanValidationBinder<>(Person.class);
-
-        // Bind fields. This is where you'd define e.g. validation rules
-
-        binder.bindInstanceFields(this);
 
         cancel.addClickListener(e -> {
             clearForm();
@@ -144,9 +145,31 @@ public class MasterDetailView extends Div implements BeforeEnterObserver {
         editorLayoutDiv.add(editorDiv);
 
         FormLayout formLayout = new FormLayout();
+
         firstName = new TextField("First Name");
+        binder.forField(firstName)
+                .withValidator((localDate, valueContext) -> {
+                    LOGGER.info("Validate on First Name called");
+                    return ValidationResult.ok();
+                })
+                .bind(Person::getFirstName, Person::setFirstName);
+
         lastName = new TextField("Last Name");
+        binder.forField(lastName)
+                .withValidator((localDate, valueContext) -> {
+                    LOGGER.info("Validate on Last Name called");
+                    return ValidationResult.ok();
+                })
+                .bind(Person::getLastName, Person::setLastName);
+
         dateOfBirth = new DatePicker("Date Of Birth");
+        binder.forField(dateOfBirth)
+                .withValidator((localDate, valueContext) -> {
+                    LOGGER.info("Validate on Date Of Birth called");
+                    return ValidationResult.ok();
+                })
+                .bind(Person::getDateOfBirth, Person::setDateOfBirth);
+
         formLayout.add(firstName, lastName, dateOfBirth);
 
         editorDiv.add(formLayout);
